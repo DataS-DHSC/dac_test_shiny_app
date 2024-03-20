@@ -28,13 +28,13 @@ jobs:
     - name: 'Docker Login'
       uses: azure/docker-login@v1
       with:
-        login-server: ${{ secrets.REGISTRY_LOGIN_SERVER_DEV }}
-        username: ${{ secrets.REGISTRY_USERNAME_DEV }}
-        password: ${{ secrets.REGISTRY_PASSWORD_DEV }}
+        login-server: ${{ secrets.IA_DEV_REGISTRY_LOGIN_SERVER }}
+        username: ${{ secrets.IA_DEV_REGISTRY_USERNAME }}
+        password: ${{ secrets.IA_DEV_REGISTRY_PASSWORD }}
  
     - name: Build the frontend image and push it to ACR
       uses: docker/build-push-action@v5
       with:
         push: true
-        tags: ${{ secrets.REGISTRY_LOGIN_SERVER_DEV }}/${{ env.AUDIENCE }}${{ env.AUTHENTICATION }}_${{ env.LANGUAGE }}_${{ env.REPO_NAME }}:${{ github.sha }}
+        tags: ${{ secrets.DEV_REGISTRY_LOGIN_SERVER }}/${{ env.AUDIENCE }}${{ env.AUTHENTICATION }}_${{ env.LANGUAGE }}_${{ env.REPO_NAME }}:${{ github.sha }}
         file: ./dockerfile
