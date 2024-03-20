@@ -36,5 +36,5 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         push: true
-        tags: ${{ secrets.DEV_REGISTRY_LOGIN_SERVER }}/${{ env.AUDIENCE }}${{ env.AUTHENTICATION }}_${{ env.LANGUAGE }}_${{ env.REPO_NAME }}:${{ github.sha }}
+        tags: ${{ secrets.IA_DEV_REGISTRY_LOGIN_SERVER }}/${{ env.AUDIENCE }}${{ env.AUTHENTICATION }}_${{ env.LANGUAGE }}_${{ env.REPO_NAME }}:${{ github.sha }}
         file: ./dockerfile
