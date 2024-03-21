@@ -8,6 +8,8 @@ USER root
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get clean
+    
+RUN apt-get update -y && apt-get install -y dos2unix
 
 #Create shiny_user to run tasks needed for shiny server and give access to directories
 RUN useradd -ms /bin/bash shiny_user
@@ -39,16 +41,29 @@ USER shiny_user
 
 WORKDIR /srv/shiny-server/
 
-COPY app.R app.R
-COPY /R /R
-
-RUN R -e 'install.packages("renv")'
-COPY renv.lock renv.lock
-RUN R -e 'renv::restore()'
+COPY ./server_config/entrypoint.sh entrypoint.sh
 
 # Copy updated shiny-server.conf to increase wait/idle time (useful when packages need to install or be loaded for the first time)
 COPY ./server_config/shiny-server.conf /etc/shiny-server/shiny-server.conf
 
+COPY app.R app.R
+COPY ./R ./R
+
+#RUN R -e 'install.packages("renv")'
+#COPY renv.lock renv.lock
+#RUN R -e 'options(repos = c(CRAN = "https://cran.ma.imperial.ac.uk/")); renv::restore()'
+#RUN R -e 'install.packages("arrow")'
+RUN R -e 'install.packages("AzureStor")'
+#RUN R -e 'install.packages("curl")'
+#RUN R -e 'install.packages("httr")'
+#RUN R -e 'install.packages("shiny")'
+#RUN R -e 'install.packages("stringr")'
+#RUN R -e 'install.packages("tidyr")'
+
+USER root
+RUN dos2unix entrypoint.sh
+RUN chmod +x entrypoint.sh
+
 #Start Shiny Server and Run as shiny
 USER shiny
-CMD ["/usr/bin/shiny-server"]
+CMD ["/srv/shiny-server/entrypoint.sh"]
