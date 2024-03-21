@@ -1,7 +1,7 @@
 
 
 read_max_date <- function() {
-  cs <- Sys.getenv("datalake_connection_string") |> 
+  cs <- Sys.getenv("datalakeconnectionstring") |> 
     stringr::str_split(";") |>
     unlist() |>
     stringr::str_split_fixed("=", 2) |>
