@@ -1,0 +1,40 @@
+name: docker_build_push_acr
+ 
+on: 
+  push:
+    branches: test
+ 
+jobs:
+  docker_build_push_acr:
+    name: 'Docker Build and Push to ACR'
+    runs-on: ubuntu-latest
+  
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+  
+    env:
+      AUDIENCE: "iapp" #iapp or eapp
+      AUTHENTICATION: "aut" #aut or noaut
+      LANGUAGE: "r" #python, r etc.
+      REPO_NAME: "dac_test_shiny_app" #repo name
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v4
+  
+    - name: 'Docker Login'
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ secrets.IN_TEST_REGISTRY_LOGIN_SERVER }}
+        username: ${{ secrets.IN_TEST_REGISTRY_USERNAME }}
+        password: ${{ secrets.IN_TEST_REGISTRY_PASSWORD }}
+ 
+    - name: Build the frontend image and push it to ACR
+      uses: docker/build-push-action@v5
+      with:
+        push: true
+        tags: ${{ secrets.IN_TEST_REGISTRY_LOGIN_SERVER }}/${{ env.AUDIENCE }}${{ env.AUTHENTICATION }}_${{ env.LANGUAGE }}_${{ env.REPO_NAME }}:${{ github.sha }}
+        file: ./dockerfile
