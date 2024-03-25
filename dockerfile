@@ -1,6 +1,8 @@
 # get shiny server and R from the rocker project
 FROM rocker/shiny-verse:4.2.1
 
+ENV NODE_OPTIONS=--max-http-header-size=16384
+
 # System libraries
 USER root
 
