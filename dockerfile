@@ -41,9 +41,9 @@ RUN chown shiny_user /srv/shiny-server/
 WORKDIR /srv/shiny-server/
 
 # install MoJ shiny server
-RUN npm i ministryofjustice/analytics-platform-shiny-server
+RUN npm i ministryofjustice/analytics-platform-shiny-server#fix-socket-reconnect-error
 ENV SHINY_APP /srv/shiny-server/app.R
-ENV ALLOWED_PROTOCOLS xhr-polling, iframe-xhr-polling, jsonp-polling
+#ENV ALLOWED_PROTOCOLS xhr-polling, iframe-xhr-polling, jsonp-polling
 
 COPY app.R app.R
 COPY ./R ./R
