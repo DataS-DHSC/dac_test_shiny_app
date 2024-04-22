@@ -1,57 +1,93 @@
-# get shiny server and R from the rocker project
-FROM rocker/r-ver:4.2.1
+# checkov:skip=CKV_DOCKER_2:Healthcheck instructions have not been added to container images
+# checkov:skip=CKV_DOCKER_3:"Ensure that a user for the container has been created"
+# hadolint global ignore=DL3008
 
-# System libraries
-USER root
+ARG r=4.2.1
+FROM rocker/r-ver:${r}
 
-## install linux packages
-RUN apt-get update && \
-    apt-get install -y curl git
+ARG shinyserver=1.5.20.1002
+ENV SHINY_SERVER_VERSION=${shinyserver}
+ENV PANDOC_VERSION=default
+RUN /rocker_scripts/install_shiny_server.sh
 
-## update system libraries
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get clean
-    
-# install npm
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 20.12.2
+ENV STRINGI_DISABLE_PKG_CONFIG=true \
+  AWS_DEFAULT_REGION=eu-west-1 \
+  TZ=Etc/UTC \
+  LC_ALL=C.UTF-8
 
-RUN mkdir -p $NVM_DIR
+WORKDIR /srv/shiny-server
 
-# install nvm
-# https://github.com/creationix/nvm#install-script
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+# Cleanup shiny-server dir
+RUN rm -rf ./*
 
-# install node and npm
-RUN . $NVM_DIR/nvm.sh \
-    && nvm install $NODE_VERSION \
-    && nvm alias default $NODE_VERSION \
-    && nvm use default
+# Make sure the directory for individual app logs exists
+RUN mkdir -p /var/log/shiny-server
 
-ENV PATH $NVM_DIR/versions/node/v${NODE_VERSION}/bin:$PATH
+# Ensure Python venv is installed (used by reticulate).
+RUN apt-get update -y && \
+  apt-get install -y \
+  python3 \
+  python3-pip \
+  python3-venv \
+  python3-dev \
+  libxml2-dev \
+  libssl-dev \
+  libudunits2-dev \
+  libgdal-dev \
+  libgeos-dev \
+  libproj-dev\
+  gdal-bin \
+  git \
+  libssl-dev \
+  libsqlite3-dev \
+  python3-boto \
+  xtail \
+  dos2unix
 
-# Create shiny_user to run tasks needed for shiny server and give access to directories
-RUN useradd -ms /bin/bash shiny_user
-RUN usermod -a -G staff shiny_user
 
-# Create directory for server and code
-RUN mkdir -p /srv/shiny-server/
-RUN chown shiny_user /srv/shiny-server/
-WORKDIR /srv/shiny-server/
+# APT Cleanup
+RUN apt-get clean && rm -rf /var/lib/apt/lists/
 
-# install MoJ shiny server
-RUN npm i ministryofjustice/analytics-platform-shiny-server#fix-socket-reconnect-error
-ENV SHINY_APP /srv/shiny-server/app.R
-#ENV ALLOWED_PROTOCOLS xhr-polling, iframe-xhr-polling, jsonp-polling
+# copy across server files
+COPY ./server_config/shiny-server.conf /etc/shiny-server/shiny-server.conf
+COPY ./server_config/shiny-server.sh /usr/bin/shiny-server.sh
+COPY ./server_config/gather_env_vars.py .
 
-COPY app.R app.R
-COPY ./R ./R
+# make sure script doesn't contain any non-unix characters
+RUN dos2unix /usr/bin/shiny-server.sh
 
-RUN install2.r shiny \
-    && rm -rf /tmp/downloaded_packages
+# install renv and dependencies
+RUN R -e "install.packages('renv', repos = c(CRAN = 'https://cloud.r-project.org'))"
+COPY renv.lock renv.lock
+ENV RENV_PATH_PATHS_LIBRARY renv/library
+RUN R -e "renv::restore()"
 
-#Run as shiny_user
-USER shiny_user
+# coy across app files - is there a better way to do this? maybe with an app folder
+COPY app/app.R app.R
+COPY app/R ./R
 
-CMD ["node", "node_modules/analytics-platform-shiny-server"]
+# Patch the shiny server to allow custom headers
+RUN sed -i 's/createWebSocketClient(pathInfo)/createWebSocketClient(pathInfo, conn.headers)/' /opt/shiny-server/lib/proxy/sockjs.js
+RUN sed -i "s/'referer'/'referer', 'cookie', 'user_email'/" /opt/shiny-server/node_modules/sockjs/lib/transport.js
+
+# Shiny runs as 'shiny' user, adjust app directory permissions
+RUN groupmod -g 998 shiny
+RUN usermod -u 998 -g 998 shiny
+RUN chown -R 998:998 .
+RUN chown -R 998:998 /etc/shiny-server
+RUN chown -R 998:998 /var/lib/shiny-server
+
+RUN chown -R 998:998 /opt/shiny-server
+RUN chown -R 998:998 /var/log/shiny-server
+RUN chown -R 998:998 /etc/init.d/shiny-server
+RUN chown -R 998:998 /usr/local/lib/R/etc
+RUN chown -R 998:998 /usr/local/lib/R/site-library
+RUN chown 998:998 /usr/bin/shiny-server.sh
+RUN chmod +x /usr/bin/shiny-server.sh
+
+RUN chown 998:998 /etc/profile
+
+EXPOSE 9999
+
+USER shiny
+CMD ["/usr/bin/shiny-server.sh"]
